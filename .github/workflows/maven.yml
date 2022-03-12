@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      workdir: com.examples.myproject
+      workdir: org.example.myproject
     strategy:
       # test against several Java versions:
       matrix:

@@ -1,34 +1,54 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+# This workflow will build a Java project with Maven
 
-name: Java CI with Maven
+name: Java CI with Maven in Linux
 
 on:
   push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    env:
+      workdir: com.examples.myproject
+    strategy:
+      # test against several Java versions:
+      matrix:
+        include:
+          - java: 8
+            additional-maven-args: >
+              -Pcoveralls
+              -DrepoToken=$COVERALLS_REPO_TOKEN
+              -DpullRequest=${{ github.event.pull_request.number }}
+          - java: 11
 
+    name: Build with Java ${{ matrix.java }} on Linux
     steps:
-    - uses: actions/checkout@v2
-    - name: ArchiveJUnitReport
-      uses: actions/upload-artifact@v2
-      with:
-        name: surefire-report-jdk-${{ matrix.java }}
-        path: '**/target/site'
-    - name: Set up JDK 11
-      uses: actions/setup-java@v2
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: maven
-    - name: Build with Maven
-      run:
-        mvn -f org.examples.myproject/pom.xml
-        clean verify
-        surefire-report:report-only site:site -DgenerateReports=false
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Cache Maven packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-jdk${{ matrix.java }}-${{ hashFiles('**/pom.xml', '**/*.yml') }}
+          restore-keys: ${{ runner.os }}-m2-
+      - name: Build with Maven
+        run: >
+          mvn verify ${{ matrix.additional-maven-args }}
+        working-directory: ${{ env.workdir }}
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+      - name: Generate JUnit Report
+        run: >
+          mvn surefire-report:report-only site:site -DgenerateReports=false
+        working-directory: ${{ env.workdir }}
+        if: ${{ always() }}
+      - name: Archive JUnit Report
+        uses: actions/upload-artifact@v2
+        if: ${{ always() }}
+        with:
+          name: surefire-report-jdk-${{ matrix.java }}
+          path: '**/target/site'

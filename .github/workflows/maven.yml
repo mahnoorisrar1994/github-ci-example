@@ -16,6 +16,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: ArchiveJUnitReport
+      uses: actions/upload-artifact@v2
+      with:
+        name: surefire-report-jdk-${{ matrix.java }}
+        path: '**/target/site'
     - name: Set up JDK 11
       uses: actions/setup-java@v2
       with:
@@ -23,4 +28,7 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Build with Maven
-      run: mvn clean install
+      run:
+        mvn -f org.examples.myproject/pom.xml
+        clean verify
+        surefire-report:report-only site:site -DgenerateReports=false
